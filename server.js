@@ -4,7 +4,8 @@ const bodyParser = require("body-parser");
 const getDataDate = require("./getData/date/getDataDate");
 const mongoose = require("mongoose");
 const Namad = require("./Namad");
-const getNamadId = require("./getFirstHalfNamadID");
+const getFirstHalfNamadId = require("./getFirstHalfNamadID");
+const getSecondHalfNamadId = require("./getSecondHalfNamadID");
 const NullNamad = require("./NullNamad");
 const Failed = require("./failed");
 
@@ -27,14 +28,11 @@ const getLegalSellCounts = require("./getData/legal/getLegalSellCounts");
 const getLegalSellAmounts = require("./getData/legal/getLegalSellAmounts");
 // ====================  Hoghoghi section ============================ //
 
-mongoose.connect(
-  "mongodb+srv://erfanpoorsina:@Iminmongodb85@erfanpoorsinacluster.uyukb.mongodb.net/namadScraper?retryWrites=true&w=majority",
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  }
-);
+mongoose.connect("url", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true,
+});
 
 app.get("/", (req, res) => {
   res.send("Its an application (its the second part) ...");
@@ -51,23 +49,31 @@ app.post("/getData", async (req, res) => {
   return res.status(200).send(namad.dataToRespond);
 });
 
-setInterval(async () => {
+(async () => {
   let iterator = 0;
 
-  const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium-browser",
+  const browserPartOne = await puppeteer.launch({
     headless: true,
     waitUntil: "networkidle2",
     args: ["--no-sandbox"],
   });
+  let firstHalfdata = getFirstHalfNamadId();
+
+  const browserPartTwo = await puppeteer.launch({
+    headless: true,
+    waitUntil: "networkidle2",
+    args: ["--no-sandbox"],
+  });
+  let secondHalfdata = getSecondHalfNamadId();
 
   // Set the inner loop for getting symbols data
-  setInterval(getData, 8000);
+  setInterval(() => {
+    getData(browserPartOne, firstHalfdata);
+    getData(browserPartTwo, secondHalfdata);
+  }, 8000);
 
-  async function getData() {
+  async function getData(browser, data) {
     iterator++;
-
-    let data = getNamadId();
 
     if (iterator == data.length - 1) {
       iterator = 0;
@@ -191,7 +197,7 @@ setInterval(async () => {
       }
     }
   }
-}, 86400000);
+})();
 
 async function saveDataInDB(id, dataToRespond) {
   const namad = await Namad.findOne({ id });
